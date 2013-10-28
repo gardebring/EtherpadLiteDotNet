@@ -60,7 +60,7 @@ namespace Etherpad
             #region Get Response And Deserialize it
             EtherpadResponse responseObject;
             using (var response = (HttpWebResponse)WebRequest.Create(BaseURI.Uri).GetResponse())
-            using (var reader = new StreamReader(response.GetResponseStream()))
+            using (var reader = new StreamReader(response.GetResponseStream(), System.Text.Encoding.UTF8))
             {
                 JavaScriptSerializer js = new JavaScriptSerializer();
                 var responseText = reader.ReadToEnd();
@@ -95,20 +95,22 @@ namespace Etherpad
 
         private string BuildQueryString(string[,] query)
         {
-            //By calling ParseQueryString with an empty string you get an empty HttpValueCollection which cannot be created any other way as it is a private class
-            var queryCollection = System.Web.HttpUtility.ParseQueryString(String.Empty);
-            queryCollection.Add("apikey", ApiKey);
+            var sbQueryResult = new StringBuilder();
+            sbQueryResult.Append("apikey=");
+            sbQueryResult.Append(ApiKey);
 
-            if (query != null)
+            var queryLength = query.GetLength(0) - 1;
+
+            for (var i = 0; i <= queryLength; i++)
             {
-                int queryLength = query.GetLength(0) - 1;
-                for (int i = 0; i <= queryLength; i++)
-                {
-                    queryCollection.Add(query[i, 0], query[i, 1]);
-                }
+                sbQueryResult.Append("&");
+                sbQueryResult.Append(query[i, 0].Trim());
+                sbQueryResult.Append("=");
+                sbQueryResult.Append(HttpUtility.UrlEncode(query[i, 1]));
             }
-        
-            return queryCollection.ToString();
+            var qc = sbQueryResult.ToString();
+
+            return qc;
         }
 
         #region Groups
