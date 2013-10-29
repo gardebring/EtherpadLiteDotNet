@@ -19,6 +19,8 @@ using System.IO;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Net;
+using System.Text;
+using System.Web;
 using System.Web.Script.Serialization;
 
 namespace Etherpad
@@ -60,7 +62,7 @@ namespace Etherpad
             #region Get Response And Deserialize it
             EtherpadResponse responseObject;
             using (var response = (HttpWebResponse)WebRequest.Create(BaseURI.Uri).GetResponse())
-            using (var reader = new StreamReader(response.GetResponseStream()))
+            using (var reader = new StreamReader(response.GetResponseStream(), System.Text.Encoding.UTF8))
             {
                 JavaScriptSerializer js = new JavaScriptSerializer();
                 var responseText = reader.ReadToEnd();
@@ -95,20 +97,24 @@ namespace Etherpad
 
         private string BuildQueryString(string[,] query)
         {
-            //By calling ParseQueryString with an empty string you get an empty HttpValueCollection which cannot be created any other way as it is a private class
-            var queryCollection = System.Web.HttpUtility.ParseQueryString(String.Empty);
-            queryCollection.Add("apikey", ApiKey);
+            var sbQueryResult = new StringBuilder();
+            sbQueryResult.Append("apikey=");
+            sbQueryResult.Append(ApiKey);
 
             if (query != null)
             {
-                int queryLength = query.GetLength(0) - 1;
-                for (int i = 0; i <= queryLength; i++)
+                var queryLength = query.GetLength(0) - 1;
+
+                for (var i = 0; i <= queryLength; i++)
                 {
-                    queryCollection.Add(query[i, 0], query[i, 1]);
+                    sbQueryResult.Append("&");
+                    sbQueryResult.Append(query[i, 0].Trim());
+                    sbQueryResult.Append("=");
+                    sbQueryResult.Append(HttpUtility.UrlEncode(query[i, 1]));
                 }
             }
-        
-            return queryCollection.ToString();
+            var qc = sbQueryResult.ToString();
+            return qc;
         }
 
         #region Groups
@@ -226,6 +232,15 @@ namespace Etherpad
             return (EtherpadResponsePadText)CallAPI("getText",
                 new string[,] { { "padID", padID } },
                 typeof(EtherpadResponsePadText));
+        }
+
+        public EtherpadResponsePadHtml GetHTML(string padId, int rev = -1)
+        {
+            return (EtherpadResponsePadHtml)CallAPI("getHTML",
+                rev > -1
+                ? new[,] { { "padID", padId }, { "rev", rev.ToString() } }
+                : new[,] { { "padID", padId } },
+                typeof(EtherpadResponsePadHtml));
         }
 
         public EtherpadResponsePadText GetText(string padID, int rev)
@@ -374,9 +389,19 @@ namespace Etherpad
         public DataPadText Data { get; set; }
     }
 
+    public class EtherpadResponsePadHtml : EtherpadResponse
+    {
+        public DataPadHtml Data { get; set; }
+    }
+
     public class DataPadText
     {
         public string Text { get; set; }
+    }
+
+    public class DataPadHtml
+    {
+        public string Html { get; set; }
     }
 
     public class EtherpadResponsePadRevisions : EtherpadResponse
